@@ -2357,3 +2357,41 @@ int orderly_poweroff(bool force)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(orderly_poweroff);
+
+//.---------------------------------------------START 1550 CODE HERE ------------------------------------
+DEFINE_SPINLOCK(sem_lock);
+
+/**
+ * using a linked list for the 1550 proj, so need some nodes
+ */
+struct llnode{
+  //TODO 
+}
+
+
+
+/**
+ * 1550 class sem. struct here
+ *
+ */
+
+struct cs1550_sem{
+  int val;
+  llnode * start;
+  llnode * end;
+}
+
+/**
+ * the 'down' 
+ */
+asmlinkage long sys_cs1550_down(struct cs1550_sem){
+  //TODO
+}
+
+/**
+ * the 'up'
+ */
+asmlinkage long sys_cs1550_up(struct cs1550_sem){
+  //TODO
+}
+
