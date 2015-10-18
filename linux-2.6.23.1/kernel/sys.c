@@ -2358,14 +2358,15 @@ int orderly_poweroff(bool force)
 }
 EXPORT_SYMBOL_GPL(orderly_poweroff);
 
-//.---------------------------------------------START 1550 CODE HERE ------------------------------------
+//.----------------------------------START 1550 CODE HERE ------------------------------------
 DEFINE_SPINLOCK(sem_lock);
 
 /**
  * using a linked list for the 1550 proj, so need some nodes
  */
 struct llnode{
-  //TODO 
+  struct tast_strut *task; //the task
+  struct llnode *next; //next node 
 }
 
 
@@ -2378,20 +2379,82 @@ struct llnode{
 struct cs1550_sem{
   int val;
   llnode * start;
-  llnode * end;
+  llnode * end;  //keeping a pointer at the end speeds up adding entries
 }
 
 /**
  * the 'down' 
  */
-asmlinkage long sys_cs1550_down(struct cs1550_sem){
-  //TODO
+asmlinkage long sys_cs1550_down(struct cs1550_sem *sem){
+  
+  spin_lock(&sem_lock) //critical stuff here
+  sem->val-=1;
+  
+  if(sem->val<0){ //we're going to have to block here
+    //let's create a new node for our linked list of processes 
+    struct llnode *new_llnode = (struct llnode) kmalloc( sizeof(llnode), GFP_ATOMIC); 
+     //GFP_ATOMIC was selected as it is to be used when holding spinlocks
+    new_llnode->task = current;
+    new_llnode->next = NULL;
+
+
+    //now let's look at how the list looks now
+    if(sem->start==NULL) //There's noting waiting yet
+      sem->start = new_llnode;
+    else //there's other stuff waiting
+      sem->end = new_llnode; //add to the end of the list
+    
+    sem->end = new_llnode;  //update the end
+    
+    
+    //task list stuff is done, now to actually block this thing
+    set_current_task(TASK_INTERRUPTABLE);
+    
+    //release the lock
+    spin_unlock(&sem_lock);
+
+    //call the scheduler 
+    schedule();
+  else  //we don't have to block!
+    spin_unlock(&sem_lock);
+  
+  return 0; //things worked!
 }
 
 /**
  * the 'up'
  */
-asmlinkage long sys_cs1550_up(struct cs1550_sem){
+asmlinkage long sys_cs1550_up(struct cs1550_sem *sem){
   //TODO
+  spin_lock(&sem_lock) //critical stuff here
+  sem->val +=1;
+  
+  if(sem->val<=0){ //there's stuff waiting
+    struct task_struct *wait_task;
+    struct llnode *wait_llnode = sem->start;
+    
+    if(wait_llnode!=NULL){ //it shouldn't be null if we're here but checking can't hurt
+      wait_task = wait_llnode->task;
+      
+      //now to do more linked list stuff
+      if(wait_llnode == sem->end){ //if this was the last node
+        sem->start == NULL;
+        sem->end   == NULL;
+      }
+      else //not the last node
+        sem->start = sem->start->next;
+      
+      //wake up a waiting process
+      wake_up_process(wait_task);
+      
+      //free the node
+      kfree(wait_llnode);
+    }
+    spin_unlock(&sem_lock);
+  }
+  else //noting was waiting, we don't have to do anything.
+    spin_unlock(&sem_lock);
+
+  return 0; //Things worked!!!
 }
 
