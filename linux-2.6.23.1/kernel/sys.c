@@ -2380,14 +2380,14 @@ struct cs1550_sem{
   int val;
   llnode * start;
   llnode * end;  //keeping a pointer at the end speeds up adding entries
-}
+};
 
 /**
  * the 'down' 
  */
 asmlinkage long sys_cs1550_down(struct cs1550_sem *sem){
   
-  spin_lock(&sem_lock) //critical stuff here
+  spin_lock(&sem_lock);//critical stuff here
   sem->val-=1;
   
   if(sem->val<0){ //we're going to have to block here
