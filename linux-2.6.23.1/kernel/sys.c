@@ -2367,7 +2367,7 @@ DEFINE_SPINLOCK(sem_lock);
 struct llnode{
   struct tast_strut *task; //the task
   struct llnode *next; //next node 
-}
+};
 
 
 
