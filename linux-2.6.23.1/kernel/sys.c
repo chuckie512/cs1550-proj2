@@ -2365,7 +2365,7 @@ DEFINE_SPINLOCK(sem_lock);
  * using a linked list for the 1550 proj, so need some nodes
  */
 struct llnode{
-  struct tast_strut *task; //the task
+  struct task_struct *task; //the task
   struct llnode *next; //next node 
 };
 
@@ -2378,8 +2378,8 @@ struct llnode{
 
 struct cs1550_sem{
   int val;
-  llnode * start;
-  llnode * end;  //keeping a pointer at the end speeds up adding entries
+  struct llnode * start;
+  struct llnode * end;  //keeping a pointer at the end speeds up adding entries
 };
 
 /**
@@ -2392,7 +2392,7 @@ asmlinkage long sys_cs1550_down(struct cs1550_sem *sem){
   
   if(sem->val<0){ //we're going to have to block here
     //let's create a new node for our linked list of processes 
-    struct llnode *new_llnode = (struct llnode) kmalloc( sizeof(llnode), GFP_ATOMIC); 
+    struct llnode *new_llnode = (struct llnode *) kmalloc( sizeof(struct llnode), GFP_ATOMIC); 
      //GFP_ATOMIC was selected as it is to be used when holding spinlocks
     new_llnode->task = current;
     new_llnode->next = NULL;
@@ -2408,13 +2408,14 @@ asmlinkage long sys_cs1550_down(struct cs1550_sem *sem){
     
     
     //task list stuff is done, now to actually block this thing
-    set_current_task(TASK_INTERRUPTABLE);
+    set_current_state(TASK_INTERRUPTIBLE);
     
     //release the lock
     spin_unlock(&sem_lock);
 
     //call the scheduler 
     schedule();
+  }
   else  //we don't have to block!
     spin_unlock(&sem_lock);
   
@@ -2426,7 +2427,7 @@ asmlinkage long sys_cs1550_down(struct cs1550_sem *sem){
  */
 asmlinkage long sys_cs1550_up(struct cs1550_sem *sem){
   //TODO
-  spin_lock(&sem_lock) //critical stuff here
+  spin_lock(&sem_lock); //critical stuff here
   sem->val +=1;
   
   if(sem->val<=0){ //there's stuff waiting
@@ -2438,8 +2439,8 @@ asmlinkage long sys_cs1550_up(struct cs1550_sem *sem){
       
       //now to do more linked list stuff
       if(wait_llnode == sem->end){ //if this was the last node
-        sem->start == NULL;
-        sem->end   == NULL;
+        sem->start = NULL;
+        sem->end   = NULL;
       }
       else //not the last node
         sem->start = sem->start->next;
